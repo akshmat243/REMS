@@ -61,5 +61,3 @@ pip-wheel-metadata/
 *.pytest_cache/
 .noseids
 
-# Optional: ignore compiled static files
-/static/
