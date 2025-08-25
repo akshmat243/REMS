@@ -8,6 +8,7 @@ from MBP.models import Role, RoleModelPermission
 from accounts.serializers import UserSerializer, RegisterUserSerializer
 from rest_framework.views import APIView
 from MBP.utils import log_audit
+from rest_framework.permissions import AllowAny
 from MBP.views import ProtectedModelViewSet
 from django.contrib.auth import get_user_model
 
@@ -79,7 +80,7 @@ class UserViewSet(ProtectedModelViewSet):
 
 
 class RegisterView(APIView):
-    permission_classes = []
+    permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = RegisterUserSerializer(data=request.data)
