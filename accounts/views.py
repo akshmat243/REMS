@@ -152,16 +152,35 @@ class LoginView(APIView):
         else:
             return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
         
+from rest_framework_simplejwt.tokens import TokenError, AccessToken
+from django.core.cache import cache
+import datetime
+
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        refresh_token = request.data.get("refresh")
+        access_token = request.headers.get("Authorization", "").split(" ")[1]  # Extract access token
+
+        if not refresh_token:
+            return Response({"error": "Refresh token is required."}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
-            refresh_token = request.data["refresh"]
+            # Blacklist refresh token
             token = RefreshToken(refresh_token)
             token.blacklist()
-            
+
+            # Blacklist access token by adding its jti to cache
+            access = AccessToken(access_token)
+            jti = access['jti']
+            exp = access['exp']
+
+            # Calculate expiry time from token
+            expiry_time = datetime.datetime.fromtimestamp(exp) - datetime.datetime.now()
+            cache.set(f"blacklisted_{jti}", True, timeout=expiry_time.total_seconds())
+
             log_audit(
                 request=request,
                 action='logout',
@@ -169,10 +188,11 @@ class LogoutView(APIView):
                 object_id=request.user.id,
                 details=f"{request.user.email} logged out."
             )
-            
+
             return Response({"message": "Logged out successfully."}, status=status.HTTP_205_RESET_CONTENT)
-        except Exception as e:
-            return Response({"error": "Invalid token or already blacklisted."}, status=status.HTTP_400_BAD_REQUEST)
+
+        except TokenError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 

@@ -46,3 +46,9 @@ class CommissionViewSet(ProtectedModelViewSet):
     serializer_class = CommissionSerializer
     model_name = "Commission"
     lookup_field = "slug"
+
+class RentRecieptViewSet(ProtectedModelViewSet):
+    queryset = RentReceipt.objects.all()
+    serializer_class = RentReceiptSerializer
+    model_name = "Commission"
+    lookup_field = "slug"

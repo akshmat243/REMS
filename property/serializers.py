@@ -1,89 +1,112 @@
 from rest_framework import serializers
-from .models import *
-from django.utils.text import slugify
-import uuid
-from ai_utils import predict_property_price, calculate_recommendation_score, classify_property_image, extract_text_from_document
+from .models import (
+    PropertyType, Address, Property, PropertyImage, 
+    PropertyAmenity, PropertyDocument, PostedProperty
+)
+from django.contrib.auth import get_user_model
 
+
+User = get_user_model()
+
+
+# ---------------- PropertyType ---------------- #
 class PropertyTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = PropertyType
-        fields = '__all__'
+        fields = "__all__"
 
-    def validate_name(self, value):
-        if PropertyType.objects.filter(name__iexact=value).exists():
-            raise serializers.ValidationError("Property type already exists.")
-        return value
+
+# ---------------- Address ---------------- #
+class AddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = "__all__"
 
 
 class PropertyImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = PropertyImage
-        fields = '__all__'
-        read_only_fields = ['slug', 'ai_tag']
-
-    def validate_image(self, value):
-        if value.size > 2 * 1024 * 1024:
-            raise serializers.ValidationError("Image file too large (max 2MB).")
-        return value
-
-    def create(self, validated_data):
-        validated_data['slug'] = slugify(f"propertyimage-{uuid.uuid4()}")
-        instance = PropertyImage(**validated_data)
-        if instance.image:
-            validated_data['ai_tag'] = classify_property_image(instance.image.path)
-        return super().create(validated_data)
+        fields = ["id", "image", "caption", "is_primary", "ai_tag", "uploaded_at"]
 
 
 class PropertyAmenitySerializer(serializers.ModelSerializer):
     class Meta:
         model = PropertyAmenity
-        fields = '__all__'
+        fields = ["id", "amenity"]
 
 
 class PropertyDocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = PropertyDocument
-        fields = '__all__'
-        read_only_fields = ['slug', 'ai_extracted_text']
-
-    def validate_document_file(self, value):
-        if not value.name.endswith(('.pdf', '.docx')):
-            raise serializers.ValidationError("Document must be a .pdf or .docx file.")
-        return value
-
-    def create(self, validated_data):
-        validated_data['slug'] = slugify(f"propertydoc-{uuid.uuid4()}")
-        instance = PropertyDocument(**validated_data)
-        if instance.document_file:
-            validated_data['ai_extracted_text'] = extract_text_from_document(instance.document_file.path)
-        return super().create(validated_data)
+        fields = ["id", "document_type", "document_file", "verified"]
 
 
 class PropertySerializer(serializers.ModelSerializer):
+    # Nested read-only serializers
+    images = PropertyImageSerializer(many=True, read_only=True)
+    amenities = PropertyAmenitySerializer(many=True, read_only=True)
+    documents = PropertyDocumentSerializer(many=True, read_only=True)
+
+    # Write-only fields
+    uploaded_images = serializers.ListField(
+        child=serializers.ImageField(), write_only=True, required=False
+    )
+    images_caption = serializers.ListField(
+        child=serializers.CharField(), write_only=True, required=False
+    )
+    uploaded_documents = serializers.ListField(
+        child=serializers.FileField(), write_only=True, required=False
+    )
+    documents_type = serializers.ListField(
+        child=serializers.CharField(), write_only=True, required=False
+    )
+    amenities_list = serializers.ListField(
+        child=serializers.CharField(), write_only=True, required=False
+    )
+
     class Meta:
         model = Property
-        fields = '__all__'
-        read_only_fields = ['slug', 'ai_price_estimate', 'ai_recommended_score']
-
-    def validate_price(self, value):
-        if value < 1000:
-            raise serializers.ValidationError("Price must be greater than 1000.")
-        return value
-
-    def validate_area_sqft(self, value):
-        if value <= 0:
-            raise serializers.ValidationError("Area must be a positive number.")
-        return value
+        fields = "__all__"
 
     def create(self, validated_data):
-        validated_data['slug'] = slugify(f"{validated_data.get('title')}-{uuid.uuid4()}")
-        instance = Property(**validated_data)
-        validated_data['ai_price_estimate'] = predict_property_price(instance)
-        validated_data['ai_recommended_score'] = calculate_recommendation_score(instance)
-        return super().create(validated_data)
+        images = validated_data.pop("uploaded_images", [])
+        captions = validated_data.pop("images_caption", [])
+        documents = validated_data.pop("uploaded_documents", [])
+        doc_types = validated_data.pop("documents_type", [])
+        amenities = validated_data.pop("amenities_list", [])
 
+        # Create property instance
+        property_instance = Property.objects.create(**validated_data)
 
+        # Save amenities
+        for amenity in amenities:
+            PropertyAmenity.objects.create(property=property_instance, amenity=amenity)
+
+        # Save images
+        for i, img in enumerate(images):
+            PropertyImage.objects.create(
+                property=property_instance,
+                image=img,
+                caption=captions[i] if i < len(captions) else "",
+            )
+
+        # Save documents
+        for i, doc in enumerate(documents):
+            PropertyDocument.objects.create(
+                property=property_instance,
+                document_file=doc,
+                document_type=doc_types[i] if i < len(doc_types) else "Other",
+            )
+
+        # 🔑 Reload with related objects so they appear in response
+        return Property.objects.prefetch_related("amenities", "images", "documents").get(
+            id=property_instance.id
+        )
+
+# ---------------- PostedProperty ---------------- #
 class PostedPropertySerializer(serializers.ModelSerializer):
     class Meta:
         model = PostedProperty
-        fields = '__all__'
+        fields = "__all__"
+        read_only_fields = ["id", "posted_on", "slug"]
+        

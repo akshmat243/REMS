@@ -5,6 +5,54 @@ from django.db.models import Avg
 from rest_framework.response import Response
 from rest_framework.decorators import action
 
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from .models import Property
+from .serializers import PropertySerializer
+
+@api_view(["GET"])
+def search_properties(request):
+    """
+    Search API
+    Example: /api/properties/search/?category=Sale&type=Apartment&status=Active
+    """
+    category = request.GET.get("category")              # Sale / Rent / Lease
+    property_type = request.GET.get("type")             # e.g. Apartment, Villa (FK name)
+    property_status = request.GET.get("status")         # Active / Sold / Rented
+    furnishing = request.GET.get("furnishing")          # Furnished / Unfurnished
+    min_price = request.GET.get("min_price")
+    max_price = request.GET.get("max_price")
+    bedrooms = request.GET.get("bedrooms")
+    location = request.GET.get("location")
+
+    queryset = Property.objects.all()
+
+    # Apply filters
+    if category:
+        queryset = queryset.filter(category=category)
+
+    if property_type:
+        queryset = queryset.filter(property_type__name__iexact=property_type)
+
+    if property_status:
+        queryset = queryset.filter(property_status=property_status)
+
+    if furnishing:
+        queryset = queryset.filter(furnishing=furnishing)
+
+    if min_price and max_price:
+        queryset = queryset.filter(price__gte=min_price, price__lte=max_price)
+
+    if bedrooms:
+        queryset = queryset.filter(bedrooms=bedrooms)
+
+    if location:
+        queryset = queryset.filter(location__icontains=location)
+
+    serializer = PropertySerializer(queryset, many=True)
+    return Response(serializer.data)
+
+
 class PropertyViewSet(ProtectedModelViewSet):
     queryset = Property.objects.all().order_by('-listed_on')
     serializer_class = PropertySerializer

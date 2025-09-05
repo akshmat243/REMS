@@ -12,6 +12,7 @@ router.register('posted-properties', PostedPropertyViewSet)
 
 urlpatterns = [
     path('api/', include(router.urls)),
+    path("api/properties/search/", search_properties, name="property-search"),
 ]
 
 

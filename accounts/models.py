@@ -68,8 +68,8 @@ class Profile(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(f"{self.user.username}-{str(self.id)[:8]}")
+            self.slug = slugify(f"{self.user.full_name}-{str(self.id)[:8]}")
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return self.user.username
+        return self.user.full_name

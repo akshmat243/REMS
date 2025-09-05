@@ -11,7 +11,7 @@ class RequestInfoViewSet(ProtectedModelViewSet):
     lookup_field = "slug"
 
 class FeedbackViewSet(ProtectedModelViewSet):
-    queryset = Feedback.objects.all().order_by('-submitted_at')
+    queryset = Feedback.objects.all().order_by('-created_at')
     serializer_class = FeedbackSerializer
     model_name = "Feedback"
     lookup_field = "slug"
@@ -57,8 +57,8 @@ class CustomerServiceLogViewSet(ProtectedModelViewSet):
     lookup_field = "slug"
 
 class SummonsNoticeViewSet(ProtectedModelViewSet):
-    queryset = SummonsNotice.objects.all()
-    serializer_class = SummonsNoticeSerializer
+    queryset = NoticeResponse.objects.all()
+    serializer_class = NoticeResponseSerializer
     model_name = "SummonsNotice"
     lookup_field = "slug"
 
@@ -66,4 +66,10 @@ class ChatInteractionLogViewSet(ProtectedModelViewSet):
     queryset = ChatInteractionLog.objects.all().order_by('-timestamp')
     serializer_class = ChatInteractionLogSerializer
     model_name = "ChatInteractionLog"
+    lookup_field = "slug"
+
+class SupportTicketViewSet(ProtectedModelViewSet):
+    queryset = SupportTicket.objects.all()
+    serializer_class = SupportTicketSerializer
+    model_name = "SupportTicket"
     lookup_field = "slug"

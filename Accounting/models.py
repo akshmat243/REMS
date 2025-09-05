@@ -82,3 +82,53 @@ class Commission(models.Model):
 
     def __str__(self):
         return f"{self.agent.username} - Commission - ₹{self.amount}"
+
+class RentReceipt(models.Model):
+    PERIOD_CHOICES = [
+        ("monthly", "Monthly"),
+        ("quarterly", "Quarterly"),
+        ("yearly", "Yearly"),
+    ]
+
+    PAYMENT_METHOD_CHOICES = [
+        ("cash", "Cash"),
+        ("bank_transfer", "Bank Transfer"),
+        ("cheque", "Cheque"),
+        ("upi", "UPI"),
+        ("other", "Other"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    receipt_number = models.CharField(
+        max_length=50, unique=True, blank=True, null=True,
+        help_text="Auto-generated if left empty"
+    )
+
+    # Tenant Details
+    tenant_name = models.CharField(max_length=150)
+    tenant_address = models.TextField()
+
+    # Landlord Details
+    landlord_name = models.CharField(max_length=150)
+    landlord_address = models.TextField()
+
+    # Property & Payment Details
+    property_address = models.TextField()
+    rent_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    period = models.CharField(max_length=20, choices=PERIOD_CHOICES, default="monthly")
+    payment_date = models.DateField()
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES)
+
+    additional_notes = models.TextField(blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        # Auto-generate receipt number if not provided
+        if not self.receipt_number:
+            self.receipt_number = f"RR-{uuid.uuid4().hex[:8].upper()}"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Rent Receipt {self.receipt_number} - {self.tenant_name}"

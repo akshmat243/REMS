@@ -65,3 +65,9 @@ class CommissionSerializer(serializers.ModelSerializer):
         if not validated_data.get('slug'):
             validated_data['slug'] = slugify(f"comm-{uuid.uuid4()}")
         return super().create(validated_data)
+
+class RentReceiptSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RentReceipt
+        fields = "__all__"
+        read_only_fields = ("id", "receipt_number", "created_at", "updated_at")

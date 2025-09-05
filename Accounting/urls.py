@@ -7,6 +7,7 @@ router.register('transactions', TransactionViewSet)
 router.register('invoices', InvoiceViewSet)
 router.register('receipts', ReceiptViewSet)
 router.register('commissions', CommissionViewSet)
+router.register('rent-receipts', RentRecieptViewSet)
 
 urlpatterns = [
     path('api/', include(router.urls)),

@@ -11,6 +11,7 @@ router.register('grievances', GrievanceViewSet)
 router.register('service-logs', CustomerServiceLogViewSet)
 router.register('summons-notices', SummonsNoticeViewSet)
 router.register('chat-logs', ChatInteractionLogViewSet)
+router.register('support-tickets', SupportTicketViewSet)
 
 urlpatterns = [
     path('api/', include(router.urls)),

@@ -5,21 +5,61 @@ from ai_utils import analyze_sentiment
 import uuid
 
 class RequestInfoSerializer(serializers.ModelSerializer):
+    # Explicitly handle JSONField as ListField of strings
+    info_types = serializers.ListField(
+        child=serializers.CharField(),
+        required=False
+    )
+
     class Meta:
         model = RequestInfo
-        fields = '__all__'
-        read_only_fields = ['slug']
+        fields = "__all__"
+        read_only_fields = ["id", "created_at"]
 
-    def create(self, validated_data):
-        validated_data['slug'] = slugify(f"request-{uuid.uuid4()}")
-        return super().create(validated_data)
+    def validate_info_types(self, value):
+        """Ensure info_types only contain allowed choices"""
+        valid_choices = [choice[0] for choice in RequestInfo.INFO_TYPES]
+        for item in value:
+            if item not in valid_choices:
+                raise serializers.ValidationError(f"Invalid info_type: {item}")
+        return value
 
+class SupportTicketSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SupportTicket
+        fields = [
+            "id",
+            "user",
+            "full_name",
+            "email",
+            "phone_number",
+            "category",
+            "priority",
+            "subject",
+            "message",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 class FeedbackSerializer(serializers.ModelSerializer):
     class Meta:
         model = Feedback
-        fields = '__all__'
-        read_only_fields = ['slug', 'ai_sentiment']
+        fields = [
+            "id",
+            "feedback_type",
+            "rating",
+            "name",
+            "email",
+            "subject",
+            "category",
+            "detailed_feedback",
+            "what_went_well",
+            "how_to_improve",
+            "recommend_us",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
 
     def validate_rating(self, value):
         if not (1 <= value <= 5):
@@ -58,8 +98,21 @@ class TestimonialSerializer(serializers.ModelSerializer):
 class GrievanceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Grievance
-        fields = '__all__'
-        read_only_fields = ['slug', 'ai_priority']
+        fields = [
+            "id",
+            "user",
+            "category",
+            "priority",
+            "title",
+            "description",
+            "property_id",
+            "transaction_id",
+            "evidence",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "status", "created_at", "updated_at"]
 
     def create(self, validated_data):
         validated_data['slug'] = slugify(f"grievance-{uuid.uuid4()}")
@@ -84,15 +137,11 @@ class CustomerServiceLogSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
-class SummonsNoticeSerializer(serializers.ModelSerializer):
+class NoticeResponseSerializer(serializers.ModelSerializer):
     class Meta:
-        model = SummonsNotice
-        fields = '__all__'
-        read_only_fields = ['slug']
-
-    def create(self, validated_data):
-        validated_data['slug'] = slugify(f"summons-{uuid.uuid4()}")
-        return super().create(validated_data)
+        model = NoticeResponse
+        fields = "__all__"
+        read_only_fields = ("id", "created_at", "updated_at")
 
 
 class ChatInteractionLogSerializer(serializers.ModelSerializer):
