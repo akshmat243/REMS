@@ -27,9 +27,9 @@ class FeedbackViewSet(ProtectedModelViewSet):
         })
 
 class ReportProblemViewSet(ProtectedModelViewSet):
-    queryset = ReportProblem.objects.all()
-    serializer_class = ReportProblemSerializer
-    model_name = "ReportProblem"
+    queryset = ProblemReport.objects.all()
+    serializer_class = ProblemReportSerializer
+    model_name = "ProblemReport"
     lookup_field = "slug"
 
 class TestimonialViewSet(ProtectedModelViewSet):

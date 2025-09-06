@@ -72,15 +72,11 @@ class FeedbackSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
-class ReportProblemSerializer(serializers.ModelSerializer):
+class ProblemReportSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ReportProblem
-        fields = '__all__'
-        read_only_fields = ['slug']
-
-    def create(self, validated_data):
-        validated_data['slug'] = slugify(f"report-{uuid.uuid4()}")
-        return super().create(validated_data)
+        model = ProblemReport
+        fields = "__all__"
+        read_only_fields = ("id", "created_at")
 
 
 class TestimonialSerializer(serializers.ModelSerializer):

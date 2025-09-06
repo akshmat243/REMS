@@ -103,17 +103,60 @@ class Feedback(models.Model):
     def __str__(self):
         return f"{self.feedback_type} - {self.subject} ({self.name})"
 
-class ReportProblem(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    issue = models.TextField()
-    related_property = models.ForeignKey(Property, on_delete=models.SET_NULL, null=True, blank=True)
+class ProblemReport(models.Model):
+    PROBLEM_TYPES = [
+        ("technical", "Technical Issue"),
+        ("account", "Account Problem"),
+        ("payment", "Payment Issue"),
+        ("mobile_app", "Mobile App Issue"),
+        ("property_listing", "Property Listing Issue"),
+        ("other", "Other"),
+    ]
+
+    PRIORITY_LEVELS = [
+        ("low", "Low"),
+        ("medium", "Medium"),
+        ("high", "High"),
+        ("critical", "Critical"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    problem_type = models.CharField(max_length=50, choices=PROBLEM_TYPES)
+    priority = models.CharField(max_length=20, choices=PRIORITY_LEVELS, default="low")
+
+    # User details
+    name = models.CharField(max_length=150)
+    email = models.EmailField()
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+
+    # Problem details
+    problem_summary = models.CharField(max_length=255)
+    detailed_description = models.TextField()
+
+    # Steps to reproduce
+    steps_to_reproduce = models.TextField(blank=True, null=True)
+
+    # System info
+    browser_version = models.CharField(max_length=100, blank=True, null=True)
+    operating_system = models.CharField(max_length=100, blank=True, null=True)
+    device_type = models.CharField(max_length=100, blank=True, null=True)
+
+    # Additional info
+    additional_information = models.TextField(blank=True, null=True)
+
+    # File upload
+    attachment = models.FileField(upload_to="problem_reports/", blank=True, null=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     slug = models.SlugField(unique=True, blank=True)
-
+    
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(f"report-{uuid.uuid4()}")
+            self.slug = slugify(f"problem-{uuid.uuid4()}")
         super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.problem_type} - {self.problem_summary} ({self.priority})"
 
 class Testimonial(models.Model):
     SENTIMENT_CHOICES = [('Positive', 'Positive'), ('Neutral', 'Neutral'), ('Negative', 'Negative')]
@@ -154,7 +197,7 @@ class Grievance(models.Model):
 
     # File uploads (multiple evidence allowed)
     evidence = models.FileField(upload_to="grievance_evidence/", blank=True, null=True)
-
+    ai_priority = models.CharField(max_length=20, null=True, blank=True)
     # Tracking fields
     status = models.CharField(
         max_length=20,

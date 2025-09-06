@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (
-    RequestInfo, Feedback, ReportProblem, Testimonial, Grievance,
+    RequestInfo, Feedback, ProblemReport, Testimonial, Grievance,
     CustomerServiceLog, NoticeResponse, ChatInteractionLog, SupportTicket
 )
 
@@ -105,10 +105,15 @@ class FeedbackAdmin(admin.ModelAdmin):
         }),
     )
 
-@admin.register(ReportProblem)
-class ReportProblemAdmin(admin.ModelAdmin):
-    list_display = ['user', 'related_property', 'created_at']
-    search_fields = ['user__full_name', 'issue']
+@admin.register(ProblemReport)
+class ProblemReportAdmin(admin.ModelAdmin):
+    list_display = (
+        "id", "problem_type", "priority", "name", "email", "phone_number",
+        "problem_summary", "created_at"
+    )
+    list_filter = ("problem_type", "priority", "created_at")
+    search_fields = ("name", "email", "phone_number", "problem_summary")
+    readonly_fields = ("created_at",)
 
 @admin.register(Testimonial)
 class TestimonialAdmin(admin.ModelAdmin):
