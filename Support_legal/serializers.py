@@ -114,7 +114,7 @@ class GrievanceSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['slug'] = slugify(f"grievance-{uuid.uuid4()}")
         # Reuse sentiment analysis for priority as a proxy
-        sentiment = analyze_sentiment(validated_data['content'])
+        sentiment = analyze_sentiment(validated_data['description'])
         validated_data['ai_priority'] = {
             'Positive': 'Low',
             'Neutral': 'Medium',

@@ -96,6 +96,8 @@ class RentReceipt(models.Model):
         ("cheque", "Cheque"),
         ("upi", "UPI"),
         ("other", "Other"),
+        ("debit card", "Debit Card"),
+        ("credit card", "Credit Card"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
