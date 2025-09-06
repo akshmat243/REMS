@@ -99,6 +99,26 @@ class Feedback(models.Model):
 
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
+    ai_sentiment = models.CharField(max_length=20, blank=True, null=True)
+    slug = models.SlugField(unique=True, blank=True)
+    
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(f"feedback-{uuid.uuid4()}")
+
+        if not self.ai_sentiment and self.detailed_feedback:
+            try:
+                sentiment = ask_openai(
+                    f"Analyze the sentiment of the following feedback and respond with one word (Positive, Neutral, Negative): {self.detailed_feedback}"
+                )
+                if sentiment in ['Positive', 'Neutral', 'Negative']:
+                    self.ai_sentiment = sentiment
+                else:
+                    self.ai_sentiment = 'Neutral'
+            except Exception as e:
+                self.ai_sentiment = 'Neutral'
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.feedback_type} - {self.subject} ({self.name})"

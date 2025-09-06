@@ -67,8 +67,9 @@ class FeedbackSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        validated_data['slug'] = slugify(f"feedback-{uuid.uuid4()}")
-        validated_data['ai_sentiment'] = analyze_sentiment(validated_data['message'])
+        validated_data["slug"] = slugify(f"feedback-{uuid.uuid4()}")
+        detailed_text = validated_data.get("detailed_feedback", "")
+        validated_data["ai_sentiment"] = analyze_sentiment(detailed_text)
         return super().create(validated_data)
 
 
