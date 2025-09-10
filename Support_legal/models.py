@@ -63,8 +63,20 @@ class RequestInfo(models.Model):
     communication_method = models.CharField(max_length=20, choices=COMMUNICATION_METHODS, default="email")
     timeline = models.CharField(max_length=20, choices=TIMELINE_CHOICES, blank=True, null=True)
 
-    consent = models.BooleanField(default=False)  # agree checkbox
+    consent = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    slug = models.SlugField(unique=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = slugify(self.full_name)
+            slug = base_slug
+            counter = 1
+            while RequestInfo.objects.filter(slug=slug).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
 
     def _str_(self):
         return f"Inquiry from {self.full_name} - {self.email}"
@@ -333,6 +345,20 @@ class SupportTicket(models.Model):
 
     # Optional: link to registered user (if logged in users can submit tickets)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="support_tickets")
+    slug = models.SlugField(unique=True, blank=True)
+    
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = slugify(self.full_name)
+            slug = base_slug
+            counter = 1
+            while SupportTicket.objects.filter(slug=slug).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
+    def __str__(self):
+        return f"Ticket {self.subject} ({self.priority})"
 
     def __str__(self):
         return f"Ticket {self.subject} ({self.priority})"

@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'drf_yasg',
     'ckeditor',
     'ckeditor_uploader',
+    
     'accounts',
     'MBP',
     'property',

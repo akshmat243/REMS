@@ -42,6 +42,7 @@ class PropertyDocumentSerializer(serializers.ModelSerializer):
 
 
 class PropertySerializer(serializers.ModelSerializer):
+    owner = serializers.HiddenField(default=serializers.CurrentUserDefault())
     # Nested read-only serializers
     images = PropertyImageSerializer(many=True, read_only=True)
     amenities = PropertyAmenitySerializer(many=True, read_only=True)
