@@ -24,21 +24,80 @@ class AddressSerializer(serializers.ModelSerializer):
 
 
 class PropertyImageSerializer(serializers.ModelSerializer):
+    property_id = serializers.PrimaryKeyRelatedField(
+        queryset=Property.objects.all(), source="property", write_only=True
+    )
+
     class Meta:
         model = PropertyImage
-        fields = ["id", "image", "caption", "is_primary", "ai_tag", "uploaded_at"]
+        fields = [
+            "id",
+            "property_id",
+            "image",
+            "caption",
+            "is_primary",
+            "uploaded_at",
+            "ai_tag",
+            "slug",
+        ]
+        read_only_fields = ["id", "uploaded_at", "slug"]
+
+    def create(self, validated_data):
+        return PropertyImage.objects.create(**validated_data)
 
 
 class PropertyAmenitySerializer(serializers.ModelSerializer):
+    property_id = serializers.PrimaryKeyRelatedField(
+        queryset=Property.objects.all(), source="property", write_only=True
+    )
+
     class Meta:
         model = PropertyAmenity
-        fields = ["id", "amenity"]
+        fields = [
+            "id",
+            "property_id",
+            "amenity",
+            "slug",
+        ]
+        read_only_fields = ["id", "slug"]
+
+    def validate_amenity(self, value):
+        if len(value) < 2:
+            raise serializers.ValidationError("Amenity name must be at least 2 characters long.")
+        return value
 
 
 class PropertyDocumentSerializer(serializers.ModelSerializer):
+    property_id = serializers.PrimaryKeyRelatedField(
+        queryset=Property.objects.all(), source="property", write_only=True
+    )
+    document_file = serializers.FileField()
+
     class Meta:
         model = PropertyDocument
-        fields = ["id", "document_type", "document_file", "verified"]
+        fields = [
+            "id",
+            "property_id",
+            "document_type",
+            "document_file",
+            "verified",
+            "verified_by",
+            "verified_at",
+            "ai_extracted_text",
+            "slug",
+        ]
+        read_only_fields = ["id", "slug", "verified_at", "ai_extracted_text"]
+
+    def validate_document_type(self, value):
+        if not value or len(value) < 3:
+            raise serializers.ValidationError("Document type must be at least 3 characters long.")
+        return value
+
+    def validate(self, data):
+        """ Extra validation for verified documents """
+        if data.get("verified") and not data.get("verified_by"):
+            raise serializers.ValidationError("Verified documents must have a verified_by user.")
+        return data
 
 
 class PropertySerializer(serializers.ModelSerializer):

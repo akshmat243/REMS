@@ -98,11 +98,12 @@ class PropertyImage(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(f"{self.property.title}-{uuid.uuid4()}")
+            base_title = getattr(self.property, "title", "property")
+            self.slug = slugify(f"{base_title}-{uuid.uuid4()}")
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.property.title} Image"
+        return f"{getattr(self.property, 'title', 'Property')} Image"
 
 class PropertyAmenity(models.Model):
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='amenities')
