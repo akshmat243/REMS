@@ -1,13 +1,26 @@
 from rest_framework import serializers
 from .models import (
     PropertyType, Address, Property, PropertyImage, 
-    PropertyAmenity, PropertyDocument, PostedProperty
+    PropertyAmenity, PropertyDocument, PostedProperty, PropertyContact as Contact
 )
 from django.contrib.auth import get_user_model
 
 
 User = get_user_model()
 
+
+class PropertyContactSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Contact
+        fields = [
+            "id",
+            "property",
+            "owner_name",
+            "email",
+            "phone_number",
+            "slug",
+        ]
+        read_only_fields = ["id", "slug", "property"]
 
 # ---------------- PropertyType ---------------- #
 class PropertyTypeSerializer(serializers.ModelSerializer):
@@ -21,10 +34,6 @@ class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
         fields = "__all__"
-
-
-from rest_framework import serializers
-from .models import Property, PropertyImage, PropertyAmenity, PropertyDocument
 
 
 # ---------------------------
@@ -136,6 +145,7 @@ class PropertySerializer(serializers.ModelSerializer):
     images = PropertyImageSerializer(many=True, read_only=True)
     amenities = PropertyAmenitySerializer(many=True, read_only=True)
     documents = PropertyDocumentSerializer(many=True, read_only=True)
+    contacts = PropertyContactSerializer(many=True, read_only=True)
 
     # Write-only fields
     uploaded_images = serializers.ListField(
@@ -153,10 +163,15 @@ class PropertySerializer(serializers.ModelSerializer):
     amenities_list = serializers.ListField(
         child=serializers.CharField(), write_only=True, required=False
     )
+    contact_owner_name = serializers.CharField(write_only=True, required=False)
+    contact_email = serializers.EmailField(write_only=True, required=False)
+    contact_phone_number = serializers.CharField(write_only=True, required=False)
+
 
     class Meta:
         model = Property
         fields = "__all__"
+        read_only_fields = ["id", "slug", "listed_on", "last_updated", "ai_price_estimate", "images", "amenities", "documents", "contacts"]
 
     def create(self, validated_data):
         images = validated_data.pop("uploaded_images", [])
@@ -164,6 +179,19 @@ class PropertySerializer(serializers.ModelSerializer):
         documents = validated_data.pop("uploaded_documents", [])
         doc_types = validated_data.pop("documents_type", [])
         amenities = validated_data.pop("amenities_list", [])
+        owner_name = validated_data.pop("contact_owner_name", None)
+        email = validated_data.pop("contact_email", None)
+        phone = validated_data.pop("contact_phone_number", None)
+        
+        request = self.context.get("request")
+        user = request.user if request else None
+
+        # Decide property status
+        validated_data["property_status"] = (
+            "Active"
+            if (user and (user.is_superuser or getattr(user, "role", None) in ["admin", "manager"]))
+            else "Pending"
+        )
 
         # Create property instance
         property_instance = Property.objects.create(**validated_data)
@@ -186,6 +214,14 @@ class PropertySerializer(serializers.ModelSerializer):
                 property=property_instance,
                 document_file=doc,
                 document_type=doc_types[i] if i < len(doc_types) else "Other",
+            )
+        
+        if owner_name or email or phone:
+            Contact.objects.create(
+                property=property_instance,
+                owner_name=owner_name or "",
+                email=email or "",
+                phone_number=phone or "",
             )
 
         # 🔑 Reload with related objects so they appear in response

@@ -43,7 +43,7 @@ class Property(models.Model):
     FURNISHING_CHOICES = [('Furnished', 'Furnished'), ('Semi-Furnished', 'Semi-Furnished'), ('Unfurnished', 'Unfurnished')]
     AVAILABILITY_STATUS = [('Ready to Move', 'Ready to Move'), ('Under Construction', 'Under Construction')]
     OWNERSHIP_TYPE = [('Freehold', 'Freehold'), ('Leasehold', 'Leasehold')]
-    PROPERTY_STATUS = [('Active', 'Active'), ('Sold', 'Sold'), ('Rented', 'Rented'), ('Inactive', 'Inactive')]
+    PROPERTY_STATUS = [('Pending', 'Pending for Approval'), ('Active', 'Active'), ('Sold', 'Sold'), ('Rented', 'Rented'), ('Inactive', 'Inactive')]
 
     title = models.CharField(max_length=255)
     description = models.TextField()
@@ -69,9 +69,12 @@ class Property(models.Model):
     ownership_type = models.CharField(max_length=20, choices=OWNERSHIP_TYPE)
     rera_approved = models.BooleanField(default=False)
     maintenance_cost = models.DecimalField(max_digits=10, decimal_places=2)
-    property_status = models.CharField(max_length=20, choices=PROPERTY_STATUS)
+    property_status = models.CharField(max_length=20, choices=PROPERTY_STATUS, blank=True, default='Pending')
     listed_on = models.DateTimeField(auto_now_add=True)
     last_updated = models.DateTimeField(auto_now=True)
+    
+    price_negotiable = models.BooleanField(default=False)
+    terms_and_conditions = models.BooleanField(default=False)
 
     # AI fields
     ai_price_estimate = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
@@ -153,3 +156,34 @@ class PostedProperty(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.property.title}"
+
+class PropertyContact(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name="contacts")
+    owner_name = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=255, unique=True, blank=True)
+    email = models.EmailField(max_length=255)
+    phone_number = models.CharField(max_length=20)
+    message = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Contact"
+        verbose_name_plural = "Contacts"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.owner_name} - {self.email}"
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = slugify(self.owner_name)
+            slug = base_slug
+            num = 1
+            while PropertyContact.objects.filter(slug=slug).exists():
+                slug = f"{base_slug}-{num}"
+                num += 1
+            self.slug = slug
+        super().save(*args, **kwargs)

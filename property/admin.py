@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     Property, PropertyType, Address, PropertyImage,
-    PropertyAmenity, PropertyDocument, PostedProperty
+    PropertyAmenity, PropertyDocument, PostedProperty, PropertyContact
 )
 
 @admin.register(Property)
@@ -42,3 +42,10 @@ class PostedPropertyAdmin(admin.ModelAdmin):
     list_display = ['user', 'property', 'status', 'posted_date']
     list_filter = ['status']
     search_fields = ['user__email', 'property__title']
+
+@admin.register(PropertyContact)
+class ContactAdmin(admin.ModelAdmin):
+    list_display = ('owner_name', 'email', 'phone_number', 'property', 'is_active', 'created_at')
+    search_fields = ('owner_name', 'email', 'phone_number', 'property__name')
+    list_filter = ('is_active', 'created_at')
+    readonly_fields = ('created_at', 'updated_at', 'slug')
