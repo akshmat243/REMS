@@ -36,7 +36,7 @@ class NotificationViewSet(ProtectedModelViewSet):
 
 
 class WishlistViewSet(ProtectedModelViewSet):
-    queryset = Wishlist.objects.all().order_by('-added_at')
+    queryset = Wishlist.objects.all().select_related("property", "user").order_by('-added_at')
     serializer_class = WishlistSerializer
     model_name = "Wishlist"
     lookup_field = "slug"

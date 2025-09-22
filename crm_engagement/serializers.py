@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import *
 from django.utils.text import slugify
 import uuid
+from property.serializers import PropertySerializer
 
 class LeadSerializer(serializers.ModelSerializer):
     class Meta:
@@ -45,15 +46,23 @@ class NotificationSerializer(serializers.ModelSerializer):
 
 
 class WishlistSerializer(serializers.ModelSerializer):
+    user = serializers.ReadOnlyField(source="user.email")
+    property = PropertySerializer(read_only=True)
+    property_id = serializers.PrimaryKeyRelatedField(
+        queryset=Property.objects.all(), 
+        write_only=True, 
+        source="property"
+    )
+
     class Meta:
         model = Wishlist
-        fields = '__all__'
-        read_only_fields = ['slug']
+        fields = ["slug", "user", "property", "property_id", "added_at"]
+        read_only_fields = ["slug", "user", "added_at"]
 
     def create(self, validated_data):
-        if not validated_data.get('slug'):
-            validated_data['slug'] = slugify(f"wishlist-{uuid.uuid4()}")
+        validated_data["user"] = self.context["request"].user
         return super().create(validated_data)
+
 
 
 class PropertyComparisonSerializer(serializers.ModelSerializer):
