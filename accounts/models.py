@@ -24,6 +24,7 @@ class UserManager(BaseUserManager):
 class User(AbstractBaseUser, PermissionsMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
+    phone = models.CharField(max_length=15, unique=True, blank=True, null=True) 
     full_name = models.CharField(max_length=100, blank=True)
     role = models.ForeignKey('MBP.Role', null=True, blank=True, on_delete=models.CASCADE)
     slug = models.SlugField(unique=True, blank=True)
@@ -31,11 +32,14 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='created_users')
+    
+    is_email_verified = models.BooleanField(default=False)
+    is_phone_verified = models.BooleanField(default=False)
 
     objects = UserManager()
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = []
+    REQUIRED_FIELDS = ['phone']
 
     def __str__(self):
         return self.email
@@ -49,6 +53,8 @@ class User(AbstractBaseUser, PermissionsMixin):
                 slug = f"{base_slug}-{count}"
                 count += 1
             self.slug = slug
+            
+        self.is_active = self.is_email_verified and self.is_phone_verified
         super().save(*args, **kwargs)
     
     class Meta:

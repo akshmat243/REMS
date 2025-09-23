@@ -7,9 +7,13 @@ from MBP.permissions import HasModelPermission
 from MBP.models import Role, RoleModelPermission
 from accounts.serializers import UserSerializer, RegisterUserSerializer
 from rest_framework.views import APIView
+from django.shortcuts import get_object_or_404
 from MBP.utils import log_audit
 from rest_framework.permissions import AllowAny
 from MBP.views import ProtectedModelViewSet
+from django.core.mail import send_mail
+from django.conf import settings
+import random
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -83,75 +87,176 @@ class RegisterView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        serializer = RegisterUserSerializer(data=request.data)
+        serializer = RegisterUserSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
             user = serializer.save()
-            
+
+            # ✅ Generate OTP for phone
+            otp = str(random.randint(100000, 999999))
+            request.session[f"otp_{user.phone}"] = otp
+            print(f"DEBUG: OTP for {user.phone} is {otp}")  # Replace with Twilio SMS later
+
+            # ✅ Send email verification
+            verification_link = f"http://127.0.0.1:8000/api/verify-email/{user.slug}/"
+            send_mail(
+                subject="Verify your email",
+                message=f"Hello {user.full_name},\n\nClick here to verify your email: {verification_link}",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+
+            # 🔐 Audit log
             log_audit(
                 request=request,
-                action='create',
-                model_name='User',
+                action="create",
+                model_name="User",
                 object_id=user.id,
-                details=f"User {user.email} registered manually.",
-                new_data=serializer.data
+                details=f"User {user.email} registered manually. Email + OTP pending.",
+                new_data=serializer.data,
             )
-            
-            return Response({
-                "message": "Registered successfully. Awaiting admin approval.",
-                "user_id": user.id
-            }, status=status.HTTP_201_CREATED)
+
+            return Response(
+                {
+                    "message": "Registered successfully. Please verify your email and phone number.",
+                    "user_name": user.full_name,
+                    "email": user.email,
+                    "phone": user.phone,
+                },
+                status=status.HTTP_201_CREATED,
+            )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class VerifyEmailView(APIView):
+    permission_classes = [AllowAny]
+    
+    def get(self, request, slug):
+        user = get_object_or_404(User, slug=slug)
+        if not user.is_email_verified:
+            user.is_email_verified = True
+            user.save()
+        return Response(
+            {"message": "Email verified successfully!"},
+            status=status.HTTP_200_OK
+        )
+
+class VerifyOTPView(APIView):
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        phone = request.data.get("phone")
+        otp = request.data.get("otp")
+
+        stored_otp = request.session.get(f"otp_{phone}")
+
+        if not stored_otp:
+            return Response({"error": "No OTP found. Please register again."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if str(stored_otp) != str(otp):
+            return Response({"error": "Invalid OTP"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = get_object_or_404(User, phone=phone)
+        if not user.is_phone_verified:
+            user.is_phone_verified = True
+            user.save()
+
+        del request.session[f"otp_{phone}"]
+
+        return Response(
+            {"message": "Phone verified successfully!"},
+            status=status.HTTP_200_OK
+        )
+
+
 class LoginView(APIView):
-    permission_classes = []
-    throttle_classes = [UserRateThrottle]
+    permission_classes = []  # login is public
+    throttle_classes = [UserRateThrottle]  # prevent brute force
 
     def post(self, request):
         email = request.data.get("email")
         password = request.data.get("password")
 
-        user = authenticate(request, email=email, password=password)
-
-        if user is not None:
-            if not user.is_active:
-                return Response({"error": "Account is inactive."}, status=status.HTTP_403_FORBIDDEN)
-
-            refresh = RefreshToken.for_user(user)
-
-            log_audit(
-                request=request,
-                action='login',
-                model_name='User',
-                object_id=user.id,
-                details=f"{user.email} logged in"
+        if not email or not password:
+            return Response(
+                {"error": "Email and password are required"},
+                status=status.HTTP_400_BAD_REQUEST
             )
-            # Fetch accessible models for this user
-            role = user.role
-            accessible_models = []
-            if role:
-                role_perms = RoleModelPermission.objects.filter(role=role)
-                for rp in role_perms:
-                    model_info = {
-                        "model_name": rp.model.name,
-                        "permission": rp.permission_type.code  # 'c', 'r', 'u', 'd'
-                    }
-                    accessible_models.append(model_info)
 
-            return Response({
-                "refresh": str(refresh),
-                "access": str(refresh.access_token),
-                "user": {
-                    "id": str(user.id),
-                    "email": user.email,
-                    "full_name": user.full_name,
-                    "role": user.role.name if user.role else None,
-                    "permissions": accessible_models
-                }
-            }, status=status.HTTP_200_OK)
-        else:
-            return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+        # Step 1: Check if user exists
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "Invalid credentials"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        # Step 2: Check password
+        if not user.check_password(password):
+            return Response(
+                {"error": "Invalid credentials"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        # Step 3: Check email verification
+        if not user.is_email_verified:
+            return Response(
+                {"error": "Please verify your email before logging in."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Step 4: Check phone verification
+        if not user.is_phone_verified:
+            return Response(
+                {"error": "Please verify your phone number via OTP."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Step 5: Check if account is active
+        if not user.is_active:
+            return Response(
+                {"error": "Account is inactive. Contact support if this persists."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Step 6: Issue JWT tokens
+        refresh = RefreshToken.for_user(user)
+
+        # Step 7: Audit log
+        log_audit(
+            request=request,
+            action="login",
+            model_name="User",
+            object_id=user.id,
+            details=f"{user.email} logged in"
+        )
+
+        # Step 8: Collect permissions for role
+        role = user.role
+        accessible_models = []
+        if role:
+            role_perms = RoleModelPermission.objects.filter(role=role)
+            for rp in role_perms:
+                accessible_models.append({
+                    "model_name": rp.model.name,
+                    "permission": rp.permission_type.code
+                })
+
+        # Step 9: Return response
+        return Response({
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+            "user": {
+                # "id": str(user.id),
+                "email": user.email,
+                "full_name": user.full_name,
+                "role": user.role.name if user.role else None,
+                "permissions": accessible_models,
+            },
+        }, status=status.HTTP_200_OK)
         
+                
 from rest_framework_simplejwt.tokens import TokenError, AccessToken
 from django.core.cache import cache
 import datetime

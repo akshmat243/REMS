@@ -1,5 +1,5 @@
 from rest_framework.routers import DefaultRouter
-from .views import UserViewSet, LogoutView, LoginView, RegisterView, GoogleLogin
+from .views import UserViewSet, LogoutView, LoginView, RegisterView, GoogleLogin, VerifyEmailView, VerifyOTPView
 from django.urls import path, include
 
 router = DefaultRouter()
@@ -11,6 +11,8 @@ urlpatterns = [
     path('api/logout/', LogoutView.as_view(), name='logout'),
     path('api/login/', LoginView.as_view(), name='login'),
     path("api/auth/google/", GoogleLogin.as_view(), name="google_login"),
+    path("verify-email/<slug:slug>/", VerifyEmailView.as_view(), name="verify-email"),
+    path("verify-otp/", VerifyOTPView.as_view(), name="verify-otp"),
 
 ]
 

@@ -186,6 +186,22 @@ class PropertySerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         user = request.user if request else None
 
+        location_str = validated_data.get("location", "")
+        if location_str:
+            parts = [p.strip() for p in location_str.split(",")]
+            address_data = {
+                "house_no": parts[0] if len(parts) > 0 else "",
+                "street": parts[1] if len(parts) > 1 else "",
+                "landmark": parts[2] if len(parts) > 2 else "",
+                "area": parts[3] if len(parts) > 3 else "",
+                "city": parts[4] if len(parts) > 4 else "",
+                "state": parts[5] if len(parts) > 5 else "",
+                "country": parts[6] if len(parts) > 6 else "",
+                "pincode": parts[7].replace(" ", "") if len(parts) > 7 else "",
+            }
+            address = Address.objects.create(**address_data)
+            validated_data["address"] = address
+            
         # Decide property status
         validated_data["property_status"] = (
             "Active"
