@@ -82,6 +82,7 @@ class UserViewSet(ProtectedModelViewSet):
         except Role.DoesNotExist:
             return Response({"error": "Role not found."}, status=status.HTTP_404_NOT_FOUND)
 
+from django.core.cache import cache
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
@@ -93,7 +94,9 @@ class RegisterView(APIView):
 
             # ✅ Generate OTP for phone
             otp = str(random.randint(100000, 999999))
-            request.session[f"otp_{user.phone}"] = otp
+            
+            # ✅ Store OTP in cache for 5 min
+            cache.set(f"otp_{user.phone}", otp, timeout=300)
             print(f"DEBUG: OTP for {user.phone} is {otp}")  # Replace with Twilio SMS later
 
             # ✅ Send email verification
@@ -148,7 +151,7 @@ class VerifyOTPView(APIView):
         phone = request.data.get("phone")
         otp = request.data.get("otp")
 
-        stored_otp = request.session.get(f"otp_{phone}")
+        stored_otp = cache.get(f"otp_{phone}")
 
         if not stored_otp:
             return Response({"error": "No OTP found. Please register again."}, status=status.HTTP_400_BAD_REQUEST)
@@ -161,7 +164,7 @@ class VerifyOTPView(APIView):
             user.is_phone_verified = True
             user.save()
 
-        del request.session[f"otp_{phone}"]
+        cache.delete(f"otp_{phone}")
 
         return Response(
             {"message": "Phone verified successfully!"},

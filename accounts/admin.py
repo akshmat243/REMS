@@ -15,7 +15,7 @@ class UserAdmin(BaseUserAdmin):
     search_fields = ('email', 'slug', 'full_name')
 
     fieldsets = (
-        (None, {'fields': ('email', 'full_name', 'password')}),
+        (None, {'fields': ('email', 'phone', 'full_name', 'password')}),
         ('Permissions & Role', {'fields': ('is_active', 'is_staff', 'is_superuser', 'role', 'is_email_verified', 'is_phone_verified')}),
         ('Audit Info', {'fields': ('created_by', 'date_joined')}),
     )

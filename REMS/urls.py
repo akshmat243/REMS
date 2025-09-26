@@ -48,6 +48,11 @@ urlpatterns = [
 ]
 
 urlpatterns += [
+    # Your actual API urls
+    # path("api/", include("your_app.urls")),  
+
+    # Swagger + Redoc endpoints
+    re_path(r"^swagger(?P<format>\.json|\.yaml)$", schema_view.without_ui(cache_timeout=0), name="schema-json"),
      # Swagger & Redoc URLs
     re_path(r'^swagger/$', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     re_path(r'^redoc/$', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
