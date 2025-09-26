@@ -223,6 +223,7 @@ CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:5173",
+    "http://localhost:8080",
 ]
 
 # REST_FRAMEWORK = {
@@ -269,3 +270,7 @@ EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="Real Estate <noreply@realestate.com>")
+
+
+# Gemini API Key
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")

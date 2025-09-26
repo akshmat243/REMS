@@ -4,53 +4,88 @@ from MBP.views import ProtectedModelViewSet
 from django.db.models import Avg
 from rest_framework.response import Response
 from rest_framework.decorators import action
-
+from datetime import timedelta
+from django.utils.timezone import now
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import Property
 from .serializers import PropertySerializer
 
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from django.db.models import Q
+from .models import Property
+from .serializers import PropertySerializer
+
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def search_properties(request):
     """
     Search API
-    Example: /api/properties/search/?category=Sale&type=Apartment&status=Active
+    Example: /api/properties/search/?category=Sale&type=Apartment&status=Active&new_launch=true
     """
     category = request.GET.get("category")              # Sale / Rent / Lease
-    property_type = request.GET.get("type")             # e.g. Apartment, Villa (FK name)
+    property_type = request.GET.get("type")             # e.g. Apartment, Villa
     property_status = request.GET.get("status")         # Active / Sold / Rented
     furnishing = request.GET.get("furnishing")          # Furnished / Unfurnished
     min_price = request.GET.get("min_price")
     max_price = request.GET.get("max_price")
     bedrooms = request.GET.get("bedrooms")
     location = request.GET.get("location")
+    new_launch = request.GET.get("new_launch")          # true / false
 
     queryset = Property.objects.all()
 
-    # Apply filters
+    # --- Step 1: Exact match when group of filters provided ---
+    filters = {}
     if category:
-        queryset = queryset.filter(category=category)
-
+        filters["category"] = category
     if property_type:
-        queryset = queryset.filter(property_type__name__iexact=property_type)
-
+        filters["property_type__name__iexact"] = property_type
     if property_status:
-        queryset = queryset.filter(property_status=property_status)
-
+        filters["property_status"] = property_status
     if furnishing:
-        queryset = queryset.filter(furnishing=furnishing)
-
-    if min_price and max_price:
-        queryset = queryset.filter(price__gte=min_price, price__lte=max_price)
-
+        filters["furnishing"] = furnishing
     if bedrooms:
-        queryset = queryset.filter(bedrooms=bedrooms)
-
+        filters["bedrooms"] = bedrooms
+    if min_price and max_price:
+        filters["price__gte"] = min_price
+        filters["price__lte"] = max_price
     if location:
-        queryset = queryset.filter(location__icontains=location)
+        filters["location__icontains"] = location
+    if new_launch and new_launch.lower() == "true":
+        filters["listed_on__gte"] = now() - timedelta(days=30)
+
+    if filters:
+        queryset = queryset.filter(**filters)
+
+    print("SQL:", queryset.query)
+    # --- Step 2: If nothing found, try OR-based fallback search ---
+    if not queryset.exists() and filters:
+        q = Q()
+        if category:
+            q |= Q(category=category)
+        if property_type:
+            q |= Q(property_type__name__iexact=property_type)
+        if property_status:
+            q |= Q(property_status=property_status)
+        if furnishing:
+            q |= Q(furnishing=furnishing)
+        if bedrooms:
+            q |= Q(bedrooms=bedrooms)
+        if min_price and max_price:
+            q |= Q(price__gte=min_price, price__lte=max_price)
+        if location:
+            q |= Q(location__icontains=location)
+        if new_launch and new_launch.lower() == "true":
+            q |= Q(listed_on__gte=now() - timedelta(days=30))
+
+        queryset = Property.objects.filter(q)
 
     serializer = PropertySerializer(queryset, many=True)
     return Response(serializer.data)
+
 
 
 class PropertyViewSet(ProtectedModelViewSet):

@@ -95,7 +95,7 @@ class RentReceipt(models.Model):
         ("bank_transfer", "Bank Transfer"),
         ("cheque", "Cheque"),
         ("upi", "UPI"),
-        ("other", "Other"),
+        ("online banking", "Online Banking"),
         ("debit card", "Debit Card"),
         ("credit card", "Credit Card"),
     ]

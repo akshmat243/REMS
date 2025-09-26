@@ -378,3 +378,21 @@ class LogoutView(APIView):
 #         logout(request)
 
 #         return Response({"message": "Logged out successfully."}, status=status.HTTP_205_RESET_CONTENT)
+
+
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from .gemini_utils import generate_text
+
+class GeminiTextAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        prompt = request.data.get("prompt", "")
+        if not prompt:
+            return Response({"error": "Prompt is required"}, status=400)
+        
+        generated_text = generate_text(prompt)
+        return Response({"result": generated_text})
