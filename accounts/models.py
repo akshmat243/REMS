@@ -36,7 +36,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     created_by = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='created_users')
     
     is_email_verified = models.BooleanField(default=False)
-    is_phone_verified = models.BooleanField(default=False)
+    is_phone_verified = models.BooleanField(default=True)
 
     objects = UserManager()
 

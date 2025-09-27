@@ -28,8 +28,8 @@ class RegisterUserSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.is_active = False
         user.is_email_verified = False
-        user.is_phone_verified = False
-        user.role = None
+        user.is_phone_verified = True
+        user.role = Role.objects.get(name="Customer")
         user.created_by = None
         user.save()
         return user

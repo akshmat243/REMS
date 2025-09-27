@@ -92,12 +92,12 @@ class RegisterView(APIView):
         if serializer.is_valid():
             user = serializer.save()
 
-            # ✅ Generate OTP for phone
-            otp = str(random.randint(100000, 999999))
+            # # ✅ Generate OTP for phone
+            # otp = str(random.randint(100000, 999999))
             
-            # ✅ Store OTP in cache for 5 min
-            cache.set(f"otp_{user.phone}", otp, timeout=300)
-            print(f"DEBUG: OTP for {user.phone} is {otp}")  # Replace with Twilio SMS later
+            # # ✅ Store OTP in cache for 5 min
+            # cache.set(f"otp_{user.phone}", otp, timeout=300)
+            # print(f"DEBUG: OTP for {user.phone} is {otp}")  # Replace with Twilio SMS later
 
             # ✅ Send email verification
             verification_link = f"http://127.0.0.1:8000/api/verify-email/{user.slug}/"
@@ -121,7 +121,7 @@ class RegisterView(APIView):
 
             return Response(
                 {
-                    "message": "Registered successfully. Please verify your email and phone number.",
+                    "message": "Registered successfully. Please verify your email",
                     "user_name": user.full_name,
                     "email": user.email,
                     "phone": user.phone,
