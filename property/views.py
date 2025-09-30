@@ -15,73 +15,73 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def search_properties(request):
-    """
-    Search API
-    Example: /api/properties/search/?category=Sale&type=Apartment&status=Active&new_launch=true
-    """
-    category = request.GET.get("category")              # Sale / Rent / Lease
-    property_type = request.GET.get("type")             # e.g. Apartment, Villa
-    property_status = request.GET.get("status")         # Active / Sold / Rented
-    furnishing = request.GET.get("furnishing")          # Furnished / Unfurnished
-    min_price = request.GET.get("min_price")
-    max_price = request.GET.get("max_price")
-    bedrooms = request.GET.get("bedrooms")
-    location = request.GET.get("location")
-    new_launch = request.GET.get("new_launch")          # true / false
+# @api_view(["GET"])
+# @permission_classes([AllowAny])
+# def search_properties(request):
+#     """
+#     Search API
+#     Example: /api/properties/search/?category=Sale&type=Apartment&status=Active&new_launch=true
+#     """
+#     category = request.GET.get("category")              # Sale / Rent / Lease
+#     property_type = request.GET.get("type")             # e.g. Apartment, Villa
+#     property_status = request.GET.get("status")         # Active / Sold / Rented
+#     furnishing = request.GET.get("furnishing")          # Furnished / Unfurnished
+#     min_price = request.GET.get("min_price")
+#     max_price = request.GET.get("max_price")
+#     bedrooms = request.GET.get("bedrooms")
+#     location = request.GET.get("location")
+#     new_launch = request.GET.get("new_launch")          # true / false
 
-    queryset = Property.objects.all()
+#     queryset = Property.objects.all()
 
-    # --- Step 1: Exact match when group of filters provided ---
-    filters = {}
-    if category:
-        filters["category"] = category
-    if property_type:
-        filters["property_type__name__iexact"] = property_type
-    if property_status:
-        filters["property_status"] = property_status
-    if furnishing:
-        filters["furnishing"] = furnishing
-    if bedrooms:
-        filters["bedrooms"] = bedrooms
-    if min_price and max_price:
-        filters["price__gte"] = min_price
-        filters["price__lte"] = max_price
-    if location:
-        filters["location__icontains"] = location
-    if new_launch and new_launch.lower() == "true":
-        filters["listed_on__gte"] = now() - timedelta(days=30)
+#     # --- Step 1: Exact match when group of filters provided ---
+#     filters = {}
+#     if category:
+#         filters["category"] = category
+#     if property_type:
+#         filters["property_type__name__iexact"] = property_type
+#     if property_status:
+#         filters["property_status"] = property_status
+#     if furnishing:
+#         filters["furnishing"] = furnishing
+#     if bedrooms:
+#         filters["bedrooms"] = bedrooms
+#     if min_price and max_price:
+#         filters["price__gte"] = min_price
+#         filters["price__lte"] = max_price
+#     if location:
+#         filters["location__icontains"] = location
+#     if new_launch and new_launch.lower() == "true":
+#         filters["listed_on__gte"] = now() - timedelta(days=30)
 
-    if filters:
-        queryset = queryset.filter(**filters)
+#     if filters:
+#         queryset = queryset.filter(**filters)
 
-    print("SQL:", queryset.query)
-    # --- Step 2: If nothing found, try OR-based fallback search ---
-    if not queryset.exists() and filters:
-        q = Q()
-        if category:
-            q |= Q(category=category)
-        if property_type:
-            q |= Q(property_type__name__iexact=property_type)
-        if property_status:
-            q |= Q(property_status=property_status)
-        if furnishing:
-            q |= Q(furnishing=furnishing)
-        if bedrooms:
-            q |= Q(bedrooms=bedrooms)
-        if min_price and max_price:
-            q |= Q(price__gte=min_price, price__lte=max_price)
-        if location:
-            q |= Q(location__icontains=location)
-        if new_launch and new_launch.lower() == "true":
-            q |= Q(listed_on__gte=now() - timedelta(days=30))
+#     print("SQL:", queryset.query)
+#     # --- Step 2: If nothing found, try OR-based fallback search ---
+#     if not queryset.exists() and filters:
+#         q = Q()
+#         if category:
+#             q |= Q(category=category)
+#         if property_type:
+#             q |= Q(property_type__name__iexact=property_type)
+#         if property_status:
+#             q |= Q(property_status=property_status)
+#         if furnishing:
+#             q |= Q(furnishing=furnishing)
+#         if bedrooms:
+#             q |= Q(bedrooms=bedrooms)
+#         if min_price and max_price:
+#             q |= Q(price__gte=min_price, price__lte=max_price)
+#         if location:
+#             q |= Q(location__icontains=location)
+#         if new_launch and new_launch.lower() == "true":
+#             q |= Q(listed_on__gte=now() - timedelta(days=30))
 
-        queryset = Property.objects.filter(q)
+#         queryset = Property.objects.filter(q)
 
-    serializer = PropertySerializer(queryset, many=True)
-    return Response(serializer.data)
+#     serializer = PropertySerializer(queryset, many=True)
+#     return Response(serializer.data)
 
 
 
@@ -90,6 +90,73 @@ class PropertyViewSet(ProtectedModelViewSet):
     serializer_class = PropertySerializer
     model_name = "Property"
     lookup_field = "slug"
+    
+    @action(detail=False, methods=["get"], url_path="search", permission_classes=[AllowAny])
+    def search_properties(self, request):
+        """
+        Public API: Search properties by filters
+        Example:
+        /api/properties/search/?category=Sale&type=Apartment&status=Active&new_launch=true
+        """
+        category = request.GET.get("category")              
+        property_type = request.GET.get("type")             
+        property_status = request.GET.get("status")         
+        furnishing = request.GET.get("furnishing")          
+        min_price = request.GET.get("min_price")
+        max_price = request.GET.get("max_price")
+        bedrooms = request.GET.get("bedrooms")
+        location = request.GET.get("location")
+        new_launch = request.GET.get("new_launch")          
+
+        queryset = Property.objects.all()
+
+        # --- Exact match filters ---
+        filters = {}
+        if category:
+            filters["category"] = category
+        if property_type:
+            filters["property_type__name__iexact"] = property_type
+        if property_status:
+            filters["property_status"] = property_status
+        if furnishing:
+            filters["furnishing"] = furnishing
+        if bedrooms:
+            filters["bedrooms"] = bedrooms
+        if min_price and max_price:
+            filters["price__gte"] = min_price
+            filters["price__lte"] = max_price
+        if location:
+            filters["location__icontains"] = location
+        if new_launch and new_launch.lower() == "true":
+            filters["listed_on__gte"] = now() - timedelta(days=30)
+
+        if filters:
+            queryset = queryset.filter(**filters)
+
+        # --- Fallback OR search ---
+        if not queryset.exists() and filters:
+            q = Q()
+            if category:
+                q |= Q(category=category)
+            if property_type:
+                q |= Q(property_type__name__iexact=property_type)
+            if property_status:
+                q |= Q(property_status=property_status)
+            if furnishing:
+                q |= Q(furnishing=furnishing)
+            if bedrooms:
+                q |= Q(bedrooms=bedrooms)
+            if min_price and max_price:
+                q |= Q(price__gte=min_price, price__lte=max_price)
+            if location:
+                q |= Q(location__icontains=location)
+            if new_launch and new_launch.lower() == "true":
+                q |= Q(listed_on__gte=now() - timedelta(days=30))
+
+            queryset = Property.objects.filter(q)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     @action(detail=False, methods=['get'], url_path='stats')
     def stats(self, request):
