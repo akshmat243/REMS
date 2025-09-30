@@ -1,22 +1,19 @@
 from .models import *
 from .serializers import *
 from MBP.views import ProtectedModelViewSet
-from django.db.models import Avg
+from django.db.models import Avg, Count, Min, Max, Q
+from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.decorators import action
+from rest_framework.decorators import action, permission_classes, api_view
 from datetime import timedelta
 from django.utils.timezone import now
 from rest_framework.decorators import api_view
-from rest_framework.response import Response
 from .models import Property
 from .serializers import PropertySerializer
 
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from django.db.models import Q
-from .models import Property
-from .serializers import PropertySerializer
+
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
@@ -118,6 +115,68 @@ class PropertyViewSet(ProtectedModelViewSet):
         properties = self.get_queryset().filter(ai_recommended_score__gte=0.8).order_by('-ai_recommended_score')[:10]
         serializer = self.get_serializer(properties, many=True)
         return Response(serializer.data)
+    
+    @action(detail=False, methods=["get"], url_path="stats/location", permission_classes=[AllowAny])
+    def stats_location(self, request):
+        """
+        Public API: Returns property counts and price ranges grouped by city.
+        Example Response:
+        [
+            {
+                "city": "Mumbai",
+                "total_properties": 120,
+                "min_price": 2500000,
+                "max_price": 75000000,
+                "avg_price": 4500000
+            }
+        ]
+        """
+        data = (
+            Property.objects
+            .values("address__city")
+            .annotate(
+                total_properties=Count("id"),
+            )
+            .order_by("-total_properties")
+        )
+        return Response(data, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=["get"], url_path="stats/property-type", permission_classes=[AllowAny])
+    def stats_property_type(self, request):
+        """
+        Public API: Returns property counts grouped by property type.
+        Example Response:
+        [
+            {"property_type": "Apartment", "total_properties": 120},
+            {"property_type": "Villa", "total_properties": 45},
+            {"property_type": "Commercial", "total_properties": 30}
+        ]
+        """
+        data = (
+            Property.objects
+            .values("property_type__name")
+            .annotate(total_properties=Count("id"))
+            .order_by("-total_properties")
+        )
+        return Response(data, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=["get"], url_path="top-properties", permission_classes=[AllowAny])
+    def top_properties(self, request):
+        """
+        Public API: Returns top 3 latest active properties.
+        Example Response:
+        [
+            {"id": 1, "title": "Luxury Villa", "price": "5000000.00"},
+            {"id": 2, "title": "2BHK Apartment", "price": "2500000.00"},
+            {"id": 3, "title": "Office Space", "price": "7500000.00"}
+        ]
+        """
+        properties = (
+            Property.objects.filter(property_status="Active")
+            .order_by("-listed_on")[:3]
+        )
+        serializer = self.get_serializer(properties, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class PropertyTypeViewSet(ProtectedModelViewSet):
     queryset = PropertyType.objects.all()
