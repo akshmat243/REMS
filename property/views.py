@@ -200,7 +200,7 @@ class PropertyViewSet(ProtectedModelViewSet):
         """
         data = (
             Property.objects
-            .values("address__city")
+            .values("location")
             .annotate(
                 total_properties=Count("id"),
             )
