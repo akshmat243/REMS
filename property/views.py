@@ -160,22 +160,46 @@ class PropertyViewSet(ProtectedModelViewSet):
         )
         return Response(data, status=status.HTTP_200_OK)
     
-    @action(detail=False, methods=["get"], url_path="top-properties", permission_classes=[AllowAny])
-    def top_properties(self, request):
+    @action(detail=False, methods=["get"], url_path="top-ai-properties", permission_classes=[AllowAny])
+    def top_ai_properties(self, request):
         """
-        Public API: Returns top 3 latest active properties.
+        Public API: Returns top 3 properties based on AI recommended score.
         Example Response:
         [
-            {"id": 1, "title": "Luxury Villa", "price": "5000000.00"},
-            {"id": 2, "title": "2BHK Apartment", "price": "2500000.00"},
-            {"id": 3, "title": "Office Space", "price": "7500000.00"}
+            {"id": 1, "title": "Luxury Villa", "ai_recommended_score": 0.95},
+            {"id": 2, "title": "3BHK Apartment", "ai_recommended_score": 0.92},
+            {"id": 3, "title": "Office Space", "ai_recommended_score": 0.90}
         ]
         """
         properties = (
-            Property.objects.filter(property_status="Active")
-            .order_by("-listed_on")[:3]
+            Property.objects.filter(property_status="Active", ai_recommended_score__isnull=False)
+            .order_by("-ai_recommended_score")
         )
         serializer = self.get_serializer(properties, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=["get"], url_path="ai-properties", permission_classes=[AllowAny])
+    def ai_properties(self, request):
+        """
+        Public API: Returns AI-ranked properties with optional filters.
+        Query params:
+        - limit: number of properties (default = 6)
+        - category: Sale / Rent / Lease (optional)
+        
+        Example:
+        GET /api/properties/ai-properties/?limit=6&category=Sale
+        """
+        limit = int(request.query_params.get("limit", 6))
+        category = request.query_params.get("category", None)
+
+        qs = Property.objects.filter(property_status="Active", ai_recommended_score__isnull=False)
+
+        if category:
+            qs = qs.filter(category=category)
+
+        properties = qs.order_by("-ai_recommended_score")[:limit]
+        serializer = self.get_serializer(properties, many=True)
+
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class PropertyTypeViewSet(ProtectedModelViewSet):
