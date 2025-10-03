@@ -105,21 +105,29 @@ class GrievanceSerializer(serializers.ModelSerializer):
             "property_id",
             "transaction_id",
             "evidence",
+            "ai_priority",
+            "slug",
             "status",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "status", "created_at", "updated_at"]
+        read_only_fields = [
+            "id", "slug", "ai_priority", "created_at", "updated_at"
+        ]
 
     def create(self, validated_data):
+        # ✅ Generate a unique slug
         validated_data['slug'] = slugify(f"grievance-{uuid.uuid4()}")
-        # Reuse sentiment analysis for priority as a proxy
-        sentiment = analyze_sentiment(validated_data['description'])
+
+        # ✅ AI-powered priority analysis based on description
+        description = validated_data.get("description", "")
+        sentiment = analyze_sentiment(description)
         validated_data['ai_priority'] = {
-            'Positive': 'Low',
-            'Neutral': 'Medium',
-            'Negative': 'High'
-        }.get(sentiment, 'Medium')
+            "Positive": "low",
+            "Neutral": "medium",
+            "Negative": "high"
+        }.get(sentiment, "medium")
+
         return super().create(validated_data)
 
 
