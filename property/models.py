@@ -79,6 +79,13 @@ class Property(models.Model):
     # AI fields
     ai_price_estimate = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     ai_recommended_score = models.FloatField(null=True, blank=True)
+    
+    agent = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        null=True, blank=True, 
+        on_delete=models.SET_NULL, 
+        related_name="agent_properties"
+    )
 
     slug = models.SlugField(unique=True, blank=True)
 
@@ -107,6 +114,21 @@ class PropertyImage(models.Model):
 
     def __str__(self):
         return f"{getattr(self.property, 'title', 'Property')} Image"
+
+class PropertyVideo(models.Model):
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name="videos")
+    video = models.FileField(upload_to="property_videos/")
+    caption = models.CharField(max_length=255, blank=True, null=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    slug = models.SlugField(unique=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(f"property-video-{uuid.uuid4()}")
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Video for {self.property.title} ({self.caption})"
 
 class PropertyAmenity(models.Model):
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='amenities')

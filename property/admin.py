@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (
-    Property, PropertyType, Address, PropertyImage,
+    Property, PropertyType, Address, PropertyImage, PropertyVideo,
     PropertyAmenity, PropertyDocument, PostedProperty, PropertyContact
 )
 
@@ -10,6 +10,12 @@ class PropertyAdmin(admin.ModelAdmin):
     list_filter = ['category', 'property_status', 'availability_status', 'property_type']
     search_fields = ['title', 'location', 'owner__email']
     prepopulated_fields = {'slug': ('title',)}
+
+@admin.register(PropertyVideo)
+class PropertyVideoAdmin(admin.ModelAdmin):
+    list_display = ("property", "caption", "uploaded_at")
+    search_fields = ("property__title", "caption")
+
 
 @admin.register(PropertyType)
 class PropertyTypeAdmin(admin.ModelAdmin):

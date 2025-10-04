@@ -4,6 +4,61 @@ from django.utils.text import slugify
 import uuid
 from property.serializers import PropertySerializer
 
+class AgentReviewSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.full_name", read_only=True)
+
+    class Meta:
+        model = AgentReview
+        fields = ["id", "agent", "user_name", "rating", "comment", "created_at"]
+        read_only_fields = ["id", "created_at", "user_name"]
+
+
+class AgentReviewCreateSerializer(serializers.ModelSerializer):
+    agent = serializers.SlugRelatedField(
+        queryset = AgentProfile.objects.all(),
+        slug_field="slug",
+    )
+    
+    class Meta:
+        model = AgentReview
+        fields = ["agent", "rating", "comment"]
+
+    def create(self, validated_data):
+        user = self.context["request"].user
+        validated_data["user"] = user
+        return super().create(validated_data)
+
+
+
+class AgentProfileSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(source="user.full_name", read_only=True)
+    email = serializers.EmailField(source="user.email", read_only=True)
+    reviews = AgentReviewSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = AgentProfile
+        fields = [
+            "id", "slug", "full_name", "specialization", "specialties", "languages",
+            "experience_years", "properties_handled", "deals_closed",
+            "rating", "total_reviews", "verified", "response_time",
+            "profile_image", "phone", "email", "location", "about",
+            "total_earnings", "reviews"
+        ]
+        read_only_fields = ["id", "slug", "rating", "total_reviews", "deals_closed", "reviews"]
+
+    def get_recent_reviews(self, obj):
+        reviews = obj.reviews.order_by("-created_at")[:5]
+        return [
+            {
+                "user": r.user.full_name,
+                "rating": r.rating,
+                "comment": r.comment,
+                "created_at": r.created_at.strftime("%Y-%m-%d %H:%M"),
+            }
+            for r in reviews
+        ]
+
+
 class LeadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lead

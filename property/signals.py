@@ -31,3 +31,25 @@ def update_document_ai_text(sender, instance, **kwargs):
             instance.ai_extracted_text = extract_text_from_document(instance.document_file.path)
         except Exception:
             instance.ai_extracted_text = ""
+
+# signals.py
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from property.models import Property
+from crm_engagement.models import AgentProfile
+
+@receiver(post_save, sender=Property)
+def update_agent_deals(sender, instance, **kwargs):
+    """
+    Update agent's deals_closed whenever property status changes to Sold/Rented.
+    """
+    if instance.agent and instance.property_status in ["Sold", "Rented"]:
+        try:
+            agent_profile = instance.agent.agent_profile
+            closed_deals = Property.objects.filter(
+                agent=instance.agent, property_status__in=["Sold", "Rented"]
+            ).count()
+            agent_profile.deals_closed = closed_deals
+            agent_profile.save(update_fields=["deals_closed"])
+        except AgentProfile.DoesNotExist:
+            pass

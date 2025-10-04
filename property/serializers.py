@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import (
-    PropertyType, Address, Property, PropertyImage, 
+    PropertyType, Address, Property, PropertyImage, PropertyVideo,
     PropertyAmenity, PropertyDocument, PostedProperty, PropertyContact as Contact
 )
 from django.contrib.auth import get_user_model
@@ -27,6 +27,13 @@ class PropertyTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = PropertyType
         fields = "__all__"
+
+class PropertyVideoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PropertyVideo
+        fields = ["id", "video", "caption", "uploaded_at", "slug"]
+        read_only_fields = ["id", "uploaded_at", "slug"]
+
 
 
 # ---------------- Address ---------------- #
@@ -142,6 +149,7 @@ class PropertyDocumentSerializer(serializers.ModelSerializer):
 class PropertySerializer(serializers.ModelSerializer):
     owner = serializers.HiddenField(default=serializers.CurrentUserDefault())
     # Nested read-only serializers
+    videos = PropertyVideoSerializer(many=True, read_only=True)
     images = PropertyImageSerializer(many=True, read_only=True)
     amenities = PropertyAmenitySerializer(many=True, read_only=True)
     documents = PropertyDocumentSerializer(many=True, read_only=True)
@@ -166,6 +174,12 @@ class PropertySerializer(serializers.ModelSerializer):
     contact_owner_name = serializers.CharField(write_only=True, required=False)
     contact_email = serializers.EmailField(write_only=True, required=False)
     contact_phone_number = serializers.CharField(write_only=True, required=False)
+    uploaded_videos = serializers.ListField(
+        child=serializers.FileField(), write_only=True, required=False
+    )
+    videos_caption = serializers.ListField(
+        child=serializers.CharField(), write_only=True, required=False
+    )
 
 
     class Meta:
@@ -182,6 +196,8 @@ class PropertySerializer(serializers.ModelSerializer):
         owner_name = validated_data.pop("contact_owner_name", None)
         email = validated_data.pop("contact_email", None)
         phone = validated_data.pop("contact_phone_number", None)
+        videos = validated_data.pop("uploaded_videos", [])
+        video_captions = validated_data.pop("videos_caption", [])
         
         request = self.context.get("request")
         user = request.user if request else None
@@ -238,6 +254,14 @@ class PropertySerializer(serializers.ModelSerializer):
                 owner_name=owner_name or "",
                 email=email or "",
                 phone_number=phone or "",
+            )
+            
+        # Save videos
+        for i, video in enumerate(videos):
+            PropertyVideo.objects.create(
+                property=property_instance,
+                video=video,
+                caption=video_captions[i] if i < len(video_captions) else ""
             )
 
         # 🔑 Reload with related objects so they appear in response

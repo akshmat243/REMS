@@ -15,76 +15,6 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 
-# @api_view(["GET"])
-# @permission_classes([AllowAny])
-# def search_properties(request):
-#     """
-#     Search API
-#     Example: /api/properties/search/?category=Sale&type=Apartment&status=Active&new_launch=true
-#     """
-#     category = request.GET.get("category")              # Sale / Rent / Lease
-#     property_type = request.GET.get("type")             # e.g. Apartment, Villa
-#     property_status = request.GET.get("status")         # Active / Sold / Rented
-#     furnishing = request.GET.get("furnishing")          # Furnished / Unfurnished
-#     min_price = request.GET.get("min_price")
-#     max_price = request.GET.get("max_price")
-#     bedrooms = request.GET.get("bedrooms")
-#     location = request.GET.get("location")
-#     new_launch = request.GET.get("new_launch")          # true / false
-
-#     queryset = Property.objects.all()
-
-#     # --- Step 1: Exact match when group of filters provided ---
-#     filters = {}
-#     if category:
-#         filters["category"] = category
-#     if property_type:
-#         filters["property_type__name__iexact"] = property_type
-#     if property_status:
-#         filters["property_status"] = property_status
-#     if furnishing:
-#         filters["furnishing"] = furnishing
-#     if bedrooms:
-#         filters["bedrooms"] = bedrooms
-#     if min_price and max_price:
-#         filters["price__gte"] = min_price
-#         filters["price__lte"] = max_price
-#     if location:
-#         filters["location__icontains"] = location
-#     if new_launch and new_launch.lower() == "true":
-#         filters["listed_on__gte"] = now() - timedelta(days=30)
-
-#     if filters:
-#         queryset = queryset.filter(**filters)
-
-#     print("SQL:", queryset.query)
-#     # --- Step 2: If nothing found, try OR-based fallback search ---
-#     if not queryset.exists() and filters:
-#         q = Q()
-#         if category:
-#             q |= Q(category=category)
-#         if property_type:
-#             q |= Q(property_type__name__iexact=property_type)
-#         if property_status:
-#             q |= Q(property_status=property_status)
-#         if furnishing:
-#             q |= Q(furnishing=furnishing)
-#         if bedrooms:
-#             q |= Q(bedrooms=bedrooms)
-#         if min_price and max_price:
-#             q |= Q(price__gte=min_price, price__lte=max_price)
-#         if location:
-#             q |= Q(location__icontains=location)
-#         if new_launch and new_launch.lower() == "true":
-#             q |= Q(listed_on__gte=now() - timedelta(days=30))
-
-#         queryset = Property.objects.filter(q)
-
-#     serializer = PropertySerializer(queryset, many=True)
-#     return Response(serializer.data)
-
-
-
 class PropertyViewSet(ProtectedModelViewSet):
     queryset = Property.objects.all().order_by('-listed_on')
     serializer_class = PropertySerializer
@@ -186,7 +116,8 @@ class PropertyViewSet(ProtectedModelViewSet):
     @action(detail=False, methods=["get"], url_path="stats/location", permission_classes=[AllowAny])
     def stats_location(self, request):
         """
-        Public API: Returns property counts and price ranges grouped by city.
+        Public API: Returns property counts, prices, and one image grouped by city.
+        City name is extracted from `location` field.
         Example Response:
         [
             {
@@ -194,19 +125,65 @@ class PropertyViewSet(ProtectedModelViewSet):
                 "total_properties": 120,
                 "min_price": 2500000,
                 "max_price": 75000000,
-                "avg_price": 4500000
+                "avg_price": 4500000,
+                "image": "http://127.0.0.1:8000/media/property_images/mumbai.jpg"
             }
         ]
         """
-        data = (
-            Property.objects
-            .values("location")
-            .annotate(
-                total_properties=Count("id"),
-            )
-            .order_by("-total_properties")
+
+        properties = Property.objects.all()
+        city_data = {}
+
+        for prop in properties:
+            # Extract city (last part of location, strip spaces)
+            raw_location = prop.location or "Unknown"
+            parts = raw_location.split(",")
+            city = parts[-1].strip() if len(parts) > 1 else raw_location.strip()
+
+            if city not in city_data:
+                city_data[city] = {
+                    "city": city,
+                    "total_properties": 0,
+                    "prices": [],
+                    "image": None,
+                }
+
+            city_data[city]["total_properties"] += 1
+            city_data[city]["prices"].append(float(prop.price))
+
+            # Assign first image if not already set
+            if not city_data[city]["image"]:
+                first_image = prop.images.first()
+                if first_image and first_image.image:
+                    city_data[city]["image"] = request.build_absolute_uri(first_image.image.url)
+
+        # Format response
+        formatted_data = []
+        for city, info in city_data.items():
+            prices = info["prices"]
+            formatted_data.append({
+                "city": city,
+                "total_properties": info["total_properties"],
+                # "min_price": min(prices) if prices else None,
+                # "max_price": max(prices) if prices else None,
+                # "avg_price": round(sum(prices) / len(prices), 2) if prices else None,
+                "image": info["image"]
+            })
+
+        return Response(formatted_data, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=["get"], url_path="top-video-properties", permission_classes=[AllowAny])
+    def top_video_properties(self, request):
+        """
+        Public API: Returns top 5 properties that have videos
+        """
+        properties = (
+            Property.objects.filter(videos__isnull=False)
+            .distinct()
+            .order_by("-listed_on")[:5]
         )
-        return Response(data, status=status.HTTP_200_OK)
+        serializer = self.get_serializer(properties, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     @action(detail=False, methods=["get"], url_path="stats/property-type", permission_classes=[AllowAny])
     def stats_property_type(self, request):
